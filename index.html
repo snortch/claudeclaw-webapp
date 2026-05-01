@@ -2,41 +2,56 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Audit Review</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:       var(--tg-theme-bg-color, #1c1c1e);
-      --surface:  var(--tg-theme-secondary-bg-color, #2c2c2e);
-      --text:     var(--tg-theme-text-color, #ffffff);
-      --subtext:  var(--tg-theme-hint-color, #8e8e93);
-      --accent:   var(--tg-theme-button-color, #007aff);
-      --go:       #30d158;
-      --skip:     #ff453a;
+      --bg:      var(--tg-theme-bg-color, #1c1c1e);
+      --surface: var(--tg-theme-secondary-bg-color, #2c2c2e);
+      --text:    var(--tg-theme-text-color, #ffffff);
+      --subtext: var(--tg-theme-hint-color, #8e8e93);
+      --accent:  var(--tg-theme-button-color, #007aff);
+      --go:      #30d158;
+      --skip:    #ff453a;
     }
 
     html, body {
-      height: 100%;
+      height: 100dvh;
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
       overflow: hidden;
-      touch-action: none;
     }
 
-    /* ── Layout ──────────────────────────────────────── */
+    /* ── No-data screen ──────────────────────────────────────────────── */
+    #no-data {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100dvh;
+      padding: 40px;
+      text-align: center;
+      gap: 16px;
+    }
+    #no-data .icon { font-size: 52px; }
+    #no-data h2 { font-size: 20px; font-weight: 700; }
+    #no-data p  { font-size: 14px; color: var(--subtext); line-height: 1.5; }
+
+    /* ── Main app layout ─────────────────────────────────────────────── */
     #app {
       display: flex;
       flex-direction: column;
-      height: 100vh;
-      padding: 12px 16px 20px;
-      gap: 12px;
+      height: 100dvh;
+      padding: 12px 16px 0;
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+      gap: 10px;
     }
 
-    /* ── Progress bar ─────────────────────────────────── */
+    /* ── Progress bar ────────────────────────────────────────────────── */
     #progress-wrap {
       flex-shrink: 0;
       display: flex;
@@ -54,7 +69,7 @@
       height: 100%;
       background: var(--accent);
       border-radius: 2px;
-      transition: width 0.3s ease;
+      transition: width 0.25s ease;
     }
     #progress-label {
       font-size: 13px;
@@ -64,10 +79,12 @@
       text-align: right;
     }
 
-    /* ── Card deck ────────────────────────────────────── */
+    /* ── Card deck ───────────────────────────────────────────────────── */
     #deck {
       flex: 1;
       position: relative;
+      overflow: hidden;
+      border-radius: 20px;
     }
 
     .card {
@@ -75,51 +92,41 @@
       inset: 0;
       background: var(--surface);
       border-radius: 20px;
-      padding: 22px 20px 18px;
+      padding: 20px 18px 18px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
       cursor: grab;
       user-select: none;
       will-change: transform;
-      transition: box-shadow 0.15s ease;
       box-shadow: 0 4px 24px rgba(0,0,0,0.3);
-      overflow: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+      transition: box-shadow 0.2s ease;
     }
     .card:active { cursor: grabbing; }
 
-    /* swipe overlay labels */
-    .card::before,
-    .card::after {
-      content: attr(data-label);
+    /* Decision indicator border */
+    .card.is-go   { box-shadow: 0 4px 24px rgba(48,209,88,0.3), inset 0 0 0 2px var(--go); }
+    .card.is-skip { box-shadow: 0 4px 24px rgba(255,69,58,0.3), inset 0 0 0 2px var(--skip); }
+
+    /* Nav arrow overlays shown while dragging */
+    .card-arrow {
       position: absolute;
-      top: 28px;
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: 1px;
-      border-radius: 8px;
-      padding: 4px 12px;
-      border: 3px solid;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 26px;
       opacity: 0;
-      transition: opacity 0.05s;
+      transition: opacity 0.1s;
       pointer-events: none;
     }
-    .card::before {
-      content: 'GO';
-      left: 20px;
-      color: var(--go);
-      border-color: var(--go);
-    }
-    .card::after {
-      content: 'SKIP';
-      right: 20px;
-      color: var(--skip);
-      border-color: var(--skip);
-    }
-    .card.show-go::before   { opacity: 1; }
-    .card.show-skip::after  { opacity: 1; }
+    .card-arrow-prev { left: 12px; }
+    .card-arrow-next { right: 12px; }
+    .card.show-prev .card-arrow-prev { opacity: 0.6; }
+    .card.show-next .card-arrow-next { opacity: 0.6; }
 
-    /* effort badge */
+    /* Effort badge */
     .badge {
       display: inline-flex;
       align-items: center;
@@ -130,39 +137,43 @@
       letter-spacing: 0.5px;
       text-transform: uppercase;
       align-self: flex-start;
+      flex-shrink: 0;
     }
     .badge-L { background: #1a3a26; color: #30d158; }
     .badge-M { background: #3a2a10; color: #ff9f0a; }
     .badge-H { background: #3a1214; color: #ff453a; }
 
     .card-title {
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 700;
       line-height: 1.35;
       color: var(--text);
+      flex-shrink: 0;
     }
 
-    .card-section { display: flex; flex-direction: column; gap: 4px; }
+    .card-section { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
     .card-section-label {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.8px;
       color: var(--subtext);
     }
     .card-section-body {
-      font-size: 14px;
+      font-size: 13px;
       line-height: 1.5;
       color: var(--text);
       opacity: 0.9;
     }
 
-    /* dot indicators */
+    /* ── Dot indicators ──────────────────────────────────────────────── */
     #dots {
       flex-shrink: 0;
       display: flex;
       justify-content: center;
+      align-items: center;
       gap: 7px;
+      min-height: 20px;
     }
     .dot {
       width: 8px;
@@ -170,84 +181,77 @@
       border-radius: 50%;
       background: var(--surface);
       transition: background 0.2s, transform 0.2s;
+      flex-shrink: 0;
     }
-    .dot.active   { background: var(--accent); transform: scale(1.25); }
-    .dot.decided-go   { background: var(--go); }
-    .dot.decided-skip { background: var(--skip); }
+    .dot.active     { background: var(--accent); transform: scale(1.3); }
+    .dot.dot-go     { background: var(--go); }
+    .dot.dot-skip   { background: var(--skip); }
 
-    /* ── Action buttons ───────────────────────────────── */
+    /* ── Go / Skip buttons ───────────────────────────────────────────── */
     #actions {
       flex-shrink: 0;
       display: flex;
-      gap: 12px;
+      gap: 10px;
     }
     .btn {
       flex: 1;
-      padding: 14px;
+      padding: 13px;
       border-radius: 14px;
       border: none;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
       cursor: pointer;
-      transition: opacity 0.15s, transform 0.1s;
+      transition: opacity 0.15s, transform 0.1s, background 0.15s;
       -webkit-tap-highlight-color: transparent;
     }
     .btn:active { opacity: 0.75; transform: scale(0.97); }
     .btn-skip { background: rgba(255,69,58,0.15); color: var(--skip); }
     .btn-go   { background: rgba(48,209,88,0.15);  color: var(--go);  }
+    /* Active/selected state */
+    .btn-skip.chosen { background: rgba(255,69,58,0.35); }
+    .btn-go.chosen   { background: rgba(48,209,88,0.35);  }
 
-    /* ── Done screen ──────────────────────────────────── */
-    #done-screen {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      gap: 16px;
-      padding: 32px;
-      text-align: center;
-    }
-    #done-screen .done-icon { font-size: 64px; }
-    #done-screen h2 { font-size: 24px; font-weight: 700; }
-    #done-screen p  { font-size: 15px; color: var(--subtext); line-height: 1.5; }
-    #done-btn {
-      margin-top: 8px;
-      padding: 16px 40px;
-      background: var(--accent);
-      color: #fff;
-      border: none;
+    /* ── Submit button ───────────────────────────────────────────────── */
+    #submit-row { flex-shrink: 0; }
+    #submit-btn {
+      width: 100%;
+      padding: 14px;
       border-radius: 14px;
-      font-size: 16px;
+      border: none;
+      font-size: 15px;
       font-weight: 600;
       cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      -webkit-tap-highlight-color: transparent;
+      transition: opacity 0.15s, transform 0.1s;
     }
+    #submit-btn:disabled { opacity: 0.35; cursor: default; }
+    #submit-btn:not(:disabled):active { opacity: 0.8; transform: scale(0.98); }
 
-    /* exit animation */
-    @keyframes swipe-out-right {
-      to { transform: translateX(120%) rotate(20deg); opacity: 0; }
-    }
-    @keyframes swipe-out-left {
-      to { transform: translateX(-120%) rotate(-20deg); opacity: 0; }
-    }
-    .exit-right { animation: swipe-out-right 0.35s ease forwards; }
-    .exit-left  { animation: swipe-out-left  0.35s ease forwards; }
+    /* ── Card slide animations ───────────────────────────────────────── */
+    @keyframes card-in-from-right  { from { transform: translateX(100%); opacity: 0.5; } to { transform: none; opacity: 1; } }
+    @keyframes card-in-from-left   { from { transform: translateX(-100%); opacity: 0.5; } to { transform: none; opacity: 1; } }
+    @keyframes card-out-to-left    { from { transform: none; opacity: 1; } to { transform: translateX(-100%); opacity: 0; } }
+    @keyframes card-out-to-right   { from { transform: none; opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
 
-    /* next card peek */
-    .card.next {
-      transform: scale(0.94) translateY(12px);
-      opacity: 0.6;
-      pointer-events: none;
-      transition: transform 0.3s ease, opacity 0.3s ease;
-    }
-    .card.next.promote {
-      transform: scale(1) translateY(0);
-      opacity: 1;
-    }
+    .anim-in-right  { animation: card-in-from-right  0.26s ease-out both; }
+    .anim-in-left   { animation: card-in-from-left   0.26s ease-out both; }
+    .anim-out-left  { animation: card-out-to-left    0.26s ease-in  both; }
+    .anim-out-right { animation: card-out-to-right   0.26s ease-in  both; }
   </style>
 </head>
 <body>
 
-<div id="app">
+<!-- No-data fallback -->
+<div id="no-data">
+  <div class="icon">🤖</div>
+  <h2>Open from Telegram</h2>
+  <p>Tap the "Review findings" button in the bot to open this app with your audit data loaded.</p>
+</div>
+
+<!-- Main app -->
+<div id="app" style="display:none">
   <div id="progress-wrap">
     <div id="progress-track"><div id="progress-fill"></div></div>
     <div id="progress-label">1 / 1</div>
@@ -258,13 +262,9 @@
     <button class="btn btn-skip" id="btn-skip">❌ Skip</button>
     <button class="btn btn-go"   id="btn-go">✅ Go</button>
   </div>
-</div>
-
-<div id="done-screen">
-  <div class="done-icon">✅</div>
-  <h2 id="done-title">Review complete</h2>
-  <p id="done-body"></p>
-  <button id="done-btn">Send decisions</button>
+  <div id="submit-row">
+    <button id="submit-btn" disabled>Send decisions</button>
+  </div>
 </div>
 
 <script>
@@ -272,203 +272,230 @@
   tg.ready();
   tg.expand();
 
-  // ── Parse findings from URL ──────────────────────────────────────────
-  let findings = [];
-  try {
-    const raw = new URLSearchParams(location.search).get('d') || '';
-    findings = JSON.parse(atob(raw));
-  } catch (e) {
-    findings = [{
-      effort: 'L',
-      what: 'No findings loaded',
-      why: 'Could not parse data from URL.',
-      rec: 'Check the bot logs.'
-    }];
-  }
+  // ── Parse findings ────────────────────────────────────────────────────
+  const raw = new URLSearchParams(location.search).get('d') || '';
 
-  const total = findings.length;
-  let current = 0;
-  const decisions = {}; // index -> 'go' | 'no'
-
-  // ── DOM refs ────────────────────────────────────────────────────────
-  const deck        = document.getElementById('deck');
-  const dotsEl      = document.getElementById('dots');
-  const progFill    = document.getElementById('progress-fill');
-  const progLabel   = document.getElementById('progress-label');
-  const app         = document.getElementById('app');
-  const doneScreen  = document.getElementById('done-screen');
-  const doneTitle   = document.getElementById('done-title');
-  const doneBody    = document.getElementById('done-body');
-  const doneBtn     = document.getElementById('done-btn');
-
-  // ── Build dots ──────────────────────────────────────────────────────
-  const dots = findings.map((_, i) => {
-    const d = document.createElement('div');
-    d.className = 'dot' + (i === 0 ? ' active' : '');
-    dotsEl.appendChild(d);
-    return d;
-  });
-
-  // ── Build card element ──────────────────────────────────────────────
-  function makeCard(idx, isNext) {
-    const f = findings[idx];
-    const card = document.createElement('div');
-    card.className = 'card' + (isNext ? ' next' : '');
-
-    const badgeClass = 'badge badge-' + (f.effort || 'L');
-    card.innerHTML = `
-      <span class="${badgeClass}">${f.effort || 'L'}</span>
-      <div class="card-title">${esc(f.what)}</div>
-      <div class="card-section">
-        <div class="card-section-label">Why</div>
-        <div class="card-section-body">${esc(f.why)}</div>
-      </div>
-      <div class="card-section">
-        <div class="card-section-label">Recommendation</div>
-        <div class="card-section-body">${esc(f.rec)}</div>
-      </div>
-    `;
-    return card;
-  }
-
-  function esc(s) {
-    return String(s || '')
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      .replace(/"/g,'&quot;');
-  }
-
-  // ── Render initial two cards ─────────────────────────────────────────
-  let topCard  = null;
-  let nextCard = null;
-
-  function renderDeck() {
-    deck.innerHTML = '';
-    if (current + 1 < total) {
-      nextCard = makeCard(current + 1, true);
-      deck.appendChild(nextCard);
-    } else {
-      nextCard = null;
+  if (!raw) {
+    document.getElementById('no-data').style.display = 'flex';
+  } else {
+    let findings = [];
+    try {
+      // Handle both base64url (new) and standard base64 (legacy)
+      const b64 = raw.replace(/-/g, '+').replace(/_/g, '/');
+      findings = JSON.parse(atob(b64));
+    } catch (e) {
+      findings = [{ effort: 'L', what: 'Parse error', why: 'Could not decode data.', rec: 'Check bot logs.' }];
     }
-    topCard = makeCard(current, false);
-    deck.appendChild(topCard);
-    attachSwipe(topCard);
-    updateProgress();
+    document.getElementById('app').style.display = 'flex';
+    init(findings);
   }
 
-  function updateProgress() {
-    const pct = total > 1 ? (current / (total - 1)) * 100 : 100;
-    progFill.style.width = pct + '%';
-    progLabel.textContent = (current + 1) + ' / ' + total;
-    dots.forEach((d, i) => {
-      d.className = 'dot';
-      if (decisions[i] === 'go')  d.classList.add('decided-go');
-      else if (decisions[i] === 'no') d.classList.add('decided-skip');
-      else if (i === current) d.classList.add('active');
+  // ── App ───────────────────────────────────────────────────────────────
+  function init(findings) {
+    const total = findings.length;
+    let current = 0;
+    const decisions = {};      // idx -> 'go' | 'no'
+    let currentCard = null;
+    let animating = false;
+
+    const deck       = document.getElementById('deck');
+    const dotsEl     = document.getElementById('dots');
+    const progFill   = document.getElementById('progress-fill');
+    const progLabel  = document.getElementById('progress-label');
+    const btnGo      = document.getElementById('btn-go');
+    const btnSkip    = document.getElementById('btn-skip');
+    const submitBtn  = document.getElementById('submit-btn');
+
+    // Build dots
+    const dotEls = findings.map((_, i) => {
+      const d = document.createElement('div');
+      d.className = 'dot' + (i === 0 ? ' active' : '');
+      dotsEl.appendChild(d);
+      return d;
     });
-  }
 
-  // ── Decide and advance ──────────────────────────────────────────────
-  function decide(choice, card) {
-    decisions[current] = choice;
-
-    // animate card out
-    card.classList.add(choice === 'go' ? 'exit-right' : 'exit-left');
-
-    // promote next card
-    if (nextCard) {
-      nextCard.classList.add('promote');
+    // ── HTML escaping ───────────────────────────────────────────────────
+    function esc(s) {
+      return String(s || '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    setTimeout(() => {
-      current++;
-      if (current >= total) {
-        showDone();
+    // ── Build a card element ────────────────────────────────────────────
+    function makeCard(idx) {
+      const f = findings[idx];
+      const dec = decisions[idx];
+      const card = document.createElement('div');
+      card.className = [
+        'card',
+        dec === 'go'  ? 'is-go'   : '',
+        dec === 'no'  ? 'is-skip' : '',
+      ].filter(Boolean).join(' ');
+
+      card.innerHTML = `
+        <span class="card-arrow card-arrow-prev">←</span>
+        <span class="card-arrow card-arrow-next">→</span>
+        <span class="badge badge-${esc(f.effort || 'L')}">${esc(f.effort || 'L')}</span>
+        <div class="card-title">${esc(f.what)}</div>
+        <div class="card-section">
+          <div class="card-section-label">Why</div>
+          <div class="card-section-body">${esc(f.why)}</div>
+        </div>
+        <div class="card-section">
+          <div class="card-section-label">Recommendation</div>
+          <div class="card-section-body">${esc(f.rec)}</div>
+        </div>
+      `;
+      return card;
+    }
+
+    // ── Render / navigate ───────────────────────────────────────────────
+    function showCard(idx, direction) {
+      // direction: null (initial) | 'forward' | 'back'
+      const card = makeCard(idx);
+      attachSwipe(card);
+
+      if (direction && currentCard) {
+        const outClass = direction === 'forward' ? 'anim-out-left'  : 'anim-out-right';
+        const inClass  = direction === 'forward' ? 'anim-in-right'  : 'anim-in-left';
+
+        card.classList.add(inClass);
+        const leaving = currentCard;
+        leaving.classList.add(outClass);
+        deck.appendChild(card);
+        currentCard = card;
+
+        setTimeout(() => {
+          leaving.remove();
+          animating = false;
+          updateUI();
+        }, 260);
       } else {
-        renderDeck();
+        deck.innerHTML = '';
+        deck.appendChild(card);
+        currentCard = card;
+        updateUI();
       }
-    }, 340);
-  }
-
-  // ── Touch / mouse swipe ─────────────────────────────────────────────
-  const THRESHOLD = 80; // px to commit a swipe
-
-  function attachSwipe(card) {
-    let startX = 0, startY = 0, dx = 0;
-    let dragging = false;
-
-    function onStart(x, y) {
-      startX = x; startY = y; dx = 0; dragging = true;
-      card.style.transition = 'none';
     }
-    function onMove(x, y) {
-      if (!dragging) return;
-      dx = x - startX;
-      const dy = y - startY;
-      const rot = dx * 0.08;
-      card.style.transform = `translateX(${dx}px) rotate(${rot}deg)`;
-      const ratio = Math.min(Math.abs(dx) / THRESHOLD, 1);
-      card.style.opacity = 1 - ratio * 0.3;
-      card.classList.toggle('show-go',   dx >  30);
-      card.classList.toggle('show-skip', dx < -30);
+
+    function navigate(dir) {
+      if (animating) return;
+      const next = dir === 'forward' ? current + 1 : current - 1;
+      if (next < 0 || next >= total) return;
+      animating = true;
+      current = next;
+      showCard(current, dir);
+      // updateUI is called after animation in showCard
     }
-    function onEnd() {
-      if (!dragging) return;
-      dragging = false;
-      card.style.transition = '';
-      if (dx > THRESHOLD) {
-        decide('go', card);
-      } else if (dx < -THRESHOLD) {
-        decide('no', card);
-      } else {
-        // snap back
+
+    // ── Decide ──────────────────────────────────────────────────────────
+    function decide(choice) {
+      decisions[current] = choice;
+      // Update card border without re-rendering
+      if (currentCard) {
+        currentCard.classList.toggle('is-go',   choice === 'go');
+        currentCard.classList.toggle('is-skip', choice === 'no');
+      }
+      updateUI();
+    }
+
+    // ── Update UI ───────────────────────────────────────────────────────
+    function updateUI() {
+      const pct = total > 1 ? (current / (total - 1)) * 100 : 100;
+      progFill.style.width = pct + '%';
+      progLabel.textContent = (current + 1) + ' / ' + total;
+
+      dotEls.forEach((d, i) => {
+        d.className = 'dot';
+        if      (decisions[i] === 'go') d.classList.add('dot-go');
+        else if (decisions[i] === 'no') d.classList.add('dot-skip');
+        else if (i === current)          d.classList.add('active');
+      });
+
+      const dec = decisions[current];
+      btnGo.classList.toggle('chosen',   dec === 'go');
+      btnSkip.classList.toggle('chosen', dec === 'no');
+
+      const goCount    = Object.values(decisions).filter(d => d === 'go').length;
+      const totalMade  = Object.keys(decisions).length;
+      submitBtn.disabled = totalMade === 0;
+      submitBtn.textContent = goCount > 0
+        ? `Send decisions (${goCount} approved)`
+        : totalMade > 0 ? 'Send decisions (none approved)' : 'Send decisions';
+    }
+
+    // ── Swipe to navigate ───────────────────────────────────────────────
+    // Swipe left  = next card (forward)
+    // Swipe right = prev card (back)
+    const SWIPE_THRESHOLD = 55;
+
+    function attachSwipe(card) {
+      let startX = 0, startY = 0, dx = 0;
+      let active = false, maybeScroll = false;
+
+      function start(x, y) {
+        startX = x; startY = y; dx = 0;
+        active = true; maybeScroll = false;
+        card.style.transition = 'none';
+      }
+
+      function move(x, y) {
+        if (!active) return;
+        dx = x - startX;
+        const dy = y - startY;
+
+        // If vertical motion dominates early, treat as content scroll
+        if (!maybeScroll && Math.abs(dy) > Math.abs(dx) + 8) {
+          maybeScroll = true;
+        }
+        if (maybeScroll) {
+          card.style.transform = '';
+          card.classList.remove('show-prev', 'show-next');
+          return;
+        }
+
+        // Resist-drag with damping (0.25x) to signal it's a nav gesture, not full swipe
+        card.style.transform = `translateX(${dx * 0.25}px)`;
+        card.classList.toggle('show-prev', dx > 20 && current > 0);
+        card.classList.toggle('show-next', dx < -20 && current < total - 1);
+      }
+
+      function end() {
+        if (!active) return;
+        active = false;
+        card.style.transition = '';
         card.style.transform = '';
-        card.style.opacity   = '';
-        card.classList.remove('show-go', 'show-skip');
+        card.classList.remove('show-prev', 'show-next');
+
+        if (maybeScroll) return;
+
+        if (dx < -SWIPE_THRESHOLD && current < total - 1) {
+          navigate('forward');
+        } else if (dx > SWIPE_THRESHOLD && current > 0) {
+          navigate('back');
+        }
       }
+
+      card.addEventListener('touchstart',  e => start(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+      card.addEventListener('touchmove',   e => move(e.touches[0].clientX,  e.touches[0].clientY), { passive: true });
+      card.addEventListener('touchend',    end);
+      card.addEventListener('mousedown',   e => start(e.clientX, e.clientY));
+      window.addEventListener('mousemove', e => { if (active) move(e.clientX, e.clientY); });
+      window.addEventListener('mouseup',   end);
     }
 
-    card.addEventListener('touchstart',  e => onStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
-    card.addEventListener('touchmove',   e => { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
-    card.addEventListener('touchend',    onEnd);
-    card.addEventListener('mousedown',   e => onStart(e.clientX, e.clientY));
-    window.addEventListener('mousemove', e => { if (dragging) onMove(e.clientX, e.clientY); });
-    window.addEventListener('mouseup',   onEnd);
+    // ── Button handlers ─────────────────────────────────────────────────
+    btnGo.addEventListener('click',   () => decide('go'));
+    btnSkip.addEventListener('click', () => decide('no'));
+
+    submitBtn.addEventListener('click', () => {
+      if (submitBtn.disabled) return;
+      tg.sendData(JSON.stringify(decisions));
+    });
+
+    // ── Init ────────────────────────────────────────────────────────────
+    showCard(0, null);
   }
-
-  // ── Button handlers ─────────────────────────────────────────────────
-  document.getElementById('btn-go').addEventListener('click', () => {
-    if (!topCard || topCard.classList.contains('exit-right') || topCard.classList.contains('exit-left')) return;
-    decide('go', topCard);
-  });
-  document.getElementById('btn-skip').addEventListener('click', () => {
-    if (!topCard || topCard.classList.contains('exit-right') || topCard.classList.contains('exit-left')) return;
-    decide('no', topCard);
-  });
-
-  // ── Done screen ─────────────────────────────────────────────────────
-  function showDone() {
-    app.style.display = 'none';
-    doneScreen.style.display = 'flex';
-
-    const goCount  = Object.values(decisions).filter(d => d === 'go').length;
-    const noCount  = Object.values(decisions).filter(d => d === 'no').length;
-    const goIds    = Object.entries(decisions)
-      .filter(([, d]) => d === 'go')
-      .map(([i]) => parseInt(i) + 1)
-      .join(', ');
-
-    doneTitle.textContent = goCount > 0 ? `${goCount} approved` : 'Nothing approved';
-    doneBody.textContent  = goCount > 0
-      ? `${noCount} skipped. Say "go: ${goIds}" in chat to execute.`
-      : `All ${noCount} findings skipped.`;
-  }
-
-  doneBtn.addEventListener('click', () => {
-    tg.sendData(JSON.stringify(decisions));
-  });
-
-  // ── Go ──────────────────────────────────────────────────────────────
-  renderDeck();
 </script>
 </body>
 </html>

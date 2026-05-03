@@ -78,6 +78,21 @@
       min-width: 36px;
       text-align: right;
     }
+    /* ── Cancel button ───────────────────────────────────────────────── */
+    #btn-cancel {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: var(--subtext);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 8px;
+      -webkit-tap-highlight-color: transparent;
+      transition: color 0.15s, background 0.15s;
+    }
+    #btn-cancel:active { color: var(--skip); background: rgba(255,69,58,0.1); }
 
     /* ── Card deck ───────────────────────────────────────────────────── */
     #deck {
@@ -294,6 +309,7 @@
 <!-- Main app -->
 <div id="app" style="display:none">
   <div id="progress-wrap">
+    <button id="btn-cancel">✕ Cancel</button>
     <div id="progress-track"><div id="progress-fill"></div></div>
     <div id="progress-label">1 / 1</div>
   </div>
@@ -352,6 +368,7 @@
     const progLabel   = document.getElementById('progress-label');
     const btnGo       = document.getElementById('btn-go');
     const btnSkip     = document.getElementById('btn-skip');
+    const btnCancel   = document.getElementById('btn-cancel');
     const submitBtn   = document.getElementById('submit-btn');
     const commentInput = document.getElementById('comment-input');
 
@@ -361,6 +378,15 @@
       d.className = 'dot' + (i === 0 ? ' active' : '');
       dotsEl.appendChild(d);
       return d;
+    });
+
+    // ── Cancel handler ─────────────────────────────────────────────────
+    btnCancel.addEventListener('click', () => {
+      const hasDec = Object.keys(decisions).length > 0;
+      if (hasDec) {
+        if (!confirm('Discard review? Your decisions will not be saved.')) return;
+      }
+      tg.sendData(JSON.stringify({ cancelled: true }));
     });
 
     // ── Comment field ───────────────────────────────────────────────────
@@ -410,8 +436,8 @@
       ].filter(Boolean).join(' ');
 
       card.innerHTML = `
-        <span class="card-arrow card-arrow-prev">←</span>
-        <span class="card-arrow card-arrow-next">→</span>
+        <span class="card-arrow card-arrow-prev">\u2190</span>
+        <span class="card-arrow card-arrow-next">\u2192</span>
         <span class="badge badge-${esc(f.effort || 'L')}">${esc(f.effort || 'L')}</span>
         <div class="card-title">${esc(f.what)}</div>
         <div class="card-section">
